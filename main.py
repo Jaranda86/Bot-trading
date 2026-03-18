@@ -67,6 +67,7 @@ def estrategia():
 
 # 🔹 LOOP
 print("Bot iniciado...")
+send_telegram("🚀 Bot iniciado correctamente en Render 24/7")
 
 def run_bot():
     while True:
