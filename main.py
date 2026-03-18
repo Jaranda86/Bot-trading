@@ -68,19 +68,20 @@ def estrategia():
 # 🔹 LOOP
 print("Bot iniciado...")
 
-while True:
-    try:
-        señal = estrategia()
+def run_bot():
+    while True:
+        try:
+            señal = estrategia()
 
-        if señal:
-            print("Señal detectada:", señal)
-            send_telegram(f"{señal} EUR/USD - 1 min")
+            if señal:
+                print("Señal detectada:", señal)
+                send_telegram(f"{señal} EUR/USD - 1 min")
 
-        time.sleep(10)
+            time.sleep(10)
 
-    except Exception as e:
-        print("Error:", e)
-        time.sleep(10)
+        except Exception as e:
+            print("Error:", e)
+            time.sleep(10)
 
 
 
@@ -93,7 +94,8 @@ app = Flask(__name__)
 def home():
     return "Bot funcionando"
 
-def run_web():
-    app.run(host='0.0.0.0', port=10000)
+# correr bot en segundo plano
+threading.Thread(target=run_bot).start()
 
-threading.Thread(target=run_web).start()
+# servidor web (esto necesita render)
+app.run(host='0.0.0.0', port=10000)
