@@ -29,7 +29,7 @@ PASSWORD = "Pelin0709$$$"
 TOKEN = "8329264709:AAHyKe68ERfMr37EM8qn33KzMJuCuV6KeIM"
 CHAT_ID = "6826449033"
 
-PARIDADES = ["EURUSD", "GBPUSD", "AUDUSD"]
+PARIDADES = ["EURUSD-OTC", "GBPUSD-OTC", "AUDUSD-OTC"]
 TIEMPO = 60  # 1 min
 MONTO = 1
 
@@ -129,13 +129,23 @@ while True:
                 msg = f"🟢 COMPRA (CALL) {par}\n" + "\n".join(razones)
                 enviar_mensaje(msg)
 
-                Iq.buy(MONTO, par, "call", 1)
+                status, id = Iq.buy(MONTO, par, "call", 1)
+
+if status:
+    enviar_mensaje(f"✅ OPERACIÓN EJECUTADA {par}")
+else:
+    enviar_mensaje(f"❌ ERROR AL OPERAR {par}")
 
             elif señal == "put":
                 msg = f"🔴 VENTA (PUT) {par}\n" + "\n".join(razones)
                 enviar_mensaje(msg)
 
-                Iq.buy(MONTO, par, "put", 1)
+                status, id = Iq.buy(MONTO, par, "put", 1)
+
+if status:
+    enviar_mensaje(f"✅ OPERACIÓN EJECUTADA {par}")
+else:
+    enviar_mensaje(f"❌ ERROR AL OPERAR {par}")
 
             else:
                 msg = f"❌ {par} sin señal clara\n" + "\n".join(razones)
