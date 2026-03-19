@@ -13,9 +13,18 @@ PASSWORD = "Pelin0709$$$"
 TELEGRAM_TOKEN = "8329264709:AAHyKe68ERfMr37EM8qn33KzMJuCuV6KeIM"
 CHAT_ID = "6826449033"
 
-PAR = "EURUSD""AUDCAD""EURGBP"
-TIEMPO = 1  # minutos
-MONTO = 1   # monto por operación
+PARES = ["EURUSD", "GBPUSD", "AUDUSD"]
+
+TIEMPO = 1   # minutos
+MONTO = 1    # monto por operación
+
+# ===== CONTROL DE RIESGO =====
+GANANCIA_TOTAL = 0
+STOP_LOSS = -10
+STOP_WIN = 20
+
+GANADAS = 0
+PERDIDAS = 0
 
 # ===== TELEGRAM =====
 def send_telegram(msg):
@@ -30,65 +39,75 @@ def conectar():
     
     if Iq.check_connect():
         print("✅ Conectado")
-        send_telegram("🚀 Bot ACTIVO conectado a IQ Option DEMO")
+        send_telegram("🚀 Bot PRO conectado a IQ Option DEMO")
         Iq.change_balance("PRACTICE")
         return Iq
     else:
         print("❌ Error conexión")
         return None
 
-# ===== ESTRATEGIA ACTIVA =====
+# ===== ESTRATEGIA MULTIPAR =====
 def estrategia(Iq):
-    velas = Iq.get_candles(PAR, 60, 100, time.time())
-    df = pd.DataFrame(velas)
+    for par in PARES:
+        velas = Iq.get_candles(par, 60, 100, time.time())
+        df = pd.DataFrame(velas)
 
-    close = df['close']
+        close = df['close']
 
-    # RSI
-    delta = close.diff()
-    gain = (delta.where(delta > 0, 0)).rolling(14).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
-    rs = gain / loss
-    rsi = 100 - (100 / (1 + rs))
+        # RSI
+        delta = close.diff()
+        gain = (delta.where(delta > 0, 0)).rolling(14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs))
 
-    # MACD
-    exp1 = close.ewm(span=12).mean()
-    exp2 = close.ewm(span=26).mean()
-    macd = exp1 - exp2
-    signal = macd.ewm(span=9).mean()
+        # MACD
+        exp1 = close.ewm(span=12).mean()
+        exp2 = close.ewm(span=26).mean()
+        macd = exp1 - exp2
+        signal = macd.ewm(span=9).mean()
 
-    rsi_actual = rsi.iloc[-1]
-    macd_actual = macd.iloc[-1]
-    signal_actual = signal.iloc[-1]
+        rsi_actual = rsi.iloc[-1]
+        macd_actual = macd.iloc[-1]
+        signal_actual = signal.iloc[-1]
 
-    print("RSI:", rsi_actual)
+        print(f"{par} RSI:", rsi_actual)
 
-    # 🎯 MODO ACTIVO (más flexible)
-    if rsi_actual < 35 and macd_actual > signal_actual:
-        return "call"
-    
-    elif rsi_actual > 65 and macd_actual < signal_actual:
-        return "put"
+        if rsi_actual < 35 and macd_actual > signal_actual:
+            return "call", par
 
-    return None
+        elif rsi_actual > 65 and macd_actual < signal_actual:
+            return "put", par
+
+    return None, None
 
 # ===== OPERAR =====
-def operar(Iq, accion):
-    print("Ejecutando operación:", accion)
-    
-    check, id = Iq.buy(MONTO, PAR, accion, TIEMPO)
-    
+def operar(Iq, accion, par):
+    global GANANCIA_TOTAL, GANADAS, PERDIDAS
+
+    print("Ejecutando:", accion, par)
+
+    check, id = Iq.buy(MONTO, par, accion, TIEMPO)
+
     if check:
-        send_telegram(f"📊 {PAR}\n{'🟢 COMPRA' if accion=='call' else '🔴 VENTA'}\n💰 ${MONTO}\n⏱ {TIEMPO} min")
-        
+        send_telegram(f"📊 {par}\n{'🟢 COMPRA' if accion=='call' else '🔴 VENTA'}\n💰 ${MONTO}")
+
         time.sleep(TIEMPO * 60)
-        
-        result = Iq.check_win_v4(id)
-        
-        if result > 0:
-            send_telegram(f"✅ GANADA +{result}")
+
+        resultado = Iq.check_win_v4(id)
+
+        GANANCIA_TOTAL += resultado
+
+        if resultado > 0:
+            GANADAS += 1
+            send_telegram(f"✅ GANADA +{resultado}")
         else:
-            send_telegram(f"❌ PERDIDA {result}")
+            PERDIDAS += 1
+            send_telegram(f"❌ PERDIDA {resultado}")
+
+        # 📊 Estadísticas
+        send_telegram(f"📊 Balance: {GANANCIA_TOTAL}\n✅ {GANADAS} | ❌ {PERDIDAS}")
+
     else:
         print("Error al operar")
 
@@ -112,11 +131,20 @@ def run_bot():
                 send_telegram("🤖 Bot activo analizando mercado...")
                 ultimo_mensaje = time.time()
 
-            señal = estrategia(Iq)
+            # CONTROL DE RIESGO
+            if GANANCIA_TOTAL <= STOP_LOSS:
+                send_telegram("🛑 STOP LOSS alcanzado. Bot detenido.")
+                break
 
-            if señal:
-                operar(Iq, señal)
-                time.sleep(60)  # evita spam
+            if GANANCIA_TOTAL >= STOP_WIN:
+                send_telegram("🎯 META alcanzada. Bot detenido.")
+                break
+
+            accion, par = estrategia(Iq)
+
+            if accion:
+                operar(Iq, accion, par)
+                time.sleep(60)
 
             time.sleep(10)
 
