@@ -1,182 +1,135 @@
-import time
 import requests
-import threading
-from flask import Flask
-
+import time
+from datetime import datetime
 from iqoptionapi.stable_api import IQ_Option
 import pandas as pd
-import csv
-import os
 
-# ===== CONFIG =====
+# =========================
+# CONFIG
+# =========================
 EMAIL = "jjarandacarro@gmail.com"
 PASSWORD = "Pelin0709$$$"
 
-TELEGRAM_TOKEN = "8329264709:AAHyKe68ERfMr37EM8qn33KzMJuCuV6KeIM"
+TOKEN = "8329264709:AAHyKe68ERfMr37EM8qn33KzMJuCuV6KeIM"
 CHAT_ID = "6826449033"
 
-PARES = ["EURUSD", "GBPUSD", "AUDUSD"]
-
-TIEMPO = 1
+PARIDADES = ["EURUSD", "GBPUSD", "AUDUSD"]
+TIEMPO = 60  # 1 min
 MONTO = 1
 
-# ===== RIESGO =====
-GANANCIA_TOTAL = 0
-STOP_LOSS = -10
-STOP_WIN = 20
-
-GANADAS = 0
-PERDIDAS = 0
-
-# ===== ARCHIVO DATA (para futura IA) =====
-DATA_FILE = "datos_bot.csv"
-
-# ===== TELEGRAM =====
-def send_telegram(msg):
+# =========================
+# TELEGRAM
+# =========================
+def enviar_mensaje(msg):
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    data = {"chat_id": CHAT_ID, "text": msg}
     try:
-        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-        requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
+        requests.post(url, data=data)
     except:
-        print("Error Telegram")
+        pass
 
-# ===== GUARDAR DATOS =====
-def guardar_datos(par, rsi, resultado):
-    file_exists = os.path.isfile(DATA_FILE)
+# =========================
+# INDICADORES
+# =========================
+def calcular_rsi(df, periodo=14):
+    delta = df['close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(periodo).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(periodo).mean()
+    rs = gain / loss
+    return 100 - (100 / (1 + rs))
 
-    with open(DATA_FILE, mode='a', newline='') as file:
-        writer = csv.writer(file)
+def calcular_macd(df):
+    exp1 = df['close'].ewm(span=12).mean()
+    exp2 = df['close'].ewm(span=26).mean()
+    macd = exp1 - exp2
+    signal = macd.ewm(span=9).mean()
+    return macd, signal
 
-        if not file_exists:
-            writer.writerow(["par", "rsi", "resultado"])
+# =========================
+# ANALISIS
+# =========================
+def analizar(df):
+    df['rsi'] = calcular_rsi(df)
+    macd, signal = calcular_macd(df)
+    df['macd'] = macd
+    df['signal'] = signal
 
-        writer.writerow([par, rsi, resultado])
+    ultima = df.iloc[-1]
 
-# ===== CONEXION =====
-def conectar():
-    Iq = IQ_Option(EMAIL, PASSWORD)
-    Iq.connect()
+    razones = []
 
-    if Iq.check_connect():
-        print("✅ Conectado")
-        send_telegram("🚀 Bot PRO activo en DEMO")
-        Iq.change_balance("PRACTICE")
-        return Iq
+    # RSI
+    if ultima['rsi'] < 30:
+        razones.append("RSI sobreventa")
+    elif ultima['rsi'] > 70:
+        razones.append("RSI sobrecompra")
     else:
-        print("❌ Error conexión")
-        return None
+        razones.append("RSI neutro")
 
-# ===== ESTRATEGIA =====
-def estrategia(Iq):
-    for par in PARES:
-        try:
-            velas = Iq.get_candles(par, 60, 100, time.time())
-        except:
-            print("Error velas", par)
-            continue
+    # MACD
+    if ultima['macd'] > ultima['signal']:
+        razones.append("MACD alcista")
+    else:
+        razones.append("MACD bajista")
 
-        df = pd.DataFrame(velas)
-        close = df['close']
+    # DECISIÓN EQUILIBRADA
+    if ultima['rsi'] < 35 and ultima['macd'] > ultima['signal']:
+        return "call", razones
 
-        delta = close.diff()
-        gain = (delta.where(delta > 0, 0)).rolling(14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
-        rs = gain / loss
-        rsi = 100 - (100 / (1 + rs))
+    elif ultima['rsi'] > 65 and ultima['macd'] < ultima['signal']:
+        return "put", razones
 
-        exp1 = close.ewm(span=12).mean()
-        exp2 = close.ewm(span=26).mean()
-        macd = exp1 - exp2
-        signal = macd.ewm(span=9).mean()
+    return None, razones
 
-        rsi_actual = rsi.iloc[-1]
-        macd_actual = macd.iloc[-1]
-        signal_actual = signal.iloc[-1]
+# =========================
+# CONEXIÓN IQ OPTION
+# =========================
+print("Conectando a IQ Option...")
+Iq = IQ_Option(EMAIL, PASSWORD)
+Iq.connect()
 
-        print(f"{par} RSI:", rsi_actual)
+if Iq.check_connect():
+    print("Conectado correctamente")
+    Iq.change_balance("PRACTICE")
+    enviar_mensaje("🚀 Bot ACTIVO conectado a IQ Option DEMO")
+else:
+    print("Error al conectar")
+    exit()
 
-        if rsi_actual < 35 and macd_actual > signal_actual:
-            return "call", par, rsi_actual
+# =========================
+# LOOP PRINCIPAL
+# =========================
+while True:
+    try:
+        enviar_mensaje("🤖 Analizando mercado...")
 
-        elif rsi_actual > 65 and macd_actual < signal_actual:
-            return "put", par, rsi_actual
+        for par in PARIDADES:
+            velas = Iq.get_candles(par, TIEMPO, 50, time.time())
+            df = pd.DataFrame(velas)
 
-    return None, None, None
+            señal, razones = analizar(df)
 
-# ===== OPERAR =====
-def operar(Iq, accion, par, rsi):
-    global GANANCIA_TOTAL, GANADAS, PERDIDAS
+            if señal == "call":
+                msg = f"🟢 COMPRA (CALL) {par}\n" + "\n".join(razones)
+                enviar_mensaje(msg)
 
-    check, id = Iq.buy(MONTO, par, accion, TIEMPO)
+                Iq.buy(MONTO, par, "call", 1)
 
-    if check:
-        send_telegram(f"📊 {par}\n{'🟢 COMPRA' if accion=='call' else '🔴 VENTA'}")
+            elif señal == "put":
+                msg = f"🔴 VENTA (PUT) {par}\n" + "\n".join(razones)
+                enviar_mensaje(msg)
 
-        time.sleep(TIEMPO * 60)
+                Iq.buy(MONTO, par, "put", 1)
 
-        resultado = Iq.check_win_v4(id)
+            else:
+                msg = f"❌ {par} sin señal clara\n" + "\n".join(razones)
+                enviar_mensaje(msg)
 
-        GANANCIA_TOTAL += resultado
+            time.sleep(2)
 
-        if resultado > 0:
-            GANADAS += 1
-            send_telegram(f"✅ +{resultado}")
-        else:
-            PERDIDAS += 1
-            send_telegram(f"❌ {resultado}")
+        time.sleep(60)
 
-        guardar_datos(par, rsi, resultado)
-
-        send_telegram(f"📊 Balance: {GANANCIA_TOTAL}\n✅ {GANADAS} | ❌ {PERDIDAS}")
-
-# ===== BOT =====
-def run_bot():
-    Iq = conectar()
-    ultimo_mensaje = time.time()
-
-    while True:
-        try:
-            print("🔄 Loop activo")
-
-            if not Iq or not Iq.check_connect():
-                print("Reconectando...")
-                Iq = conectar()
-                time.sleep(5)
-                continue
-
-            if time.time() - ultimo_mensaje > 300:
-                send_telegram("🤖 Bot analizando mercado...")
-                ultimo_mensaje = time.time()
-
-            if GANANCIA_TOTAL <= STOP_LOSS:
-                send_telegram("🛑 STOP LOSS")
-                break
-
-            if GANANCIA_TOTAL >= STOP_WIN:
-                send_telegram("🎯 STOP WIN")
-                break
-
-            accion, par, rsi = estrategia(Iq)
-
-            if accion:
-                operar(Iq, accion, par, rsi)
-                time.sleep(60)
-
-            time.sleep(10)
-
-        except Exception as e:
-            print("Error:", e)
-            time.sleep(10)
-
-# ===== WEB =====
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "Bot funcionando"
-
-def run_web():
-    app.run(host='0.0.0.0', port=10000)
-
-# ===== START =====
-threading.Thread(target=run_web).start()
-run_bot()
+    except Exception as e:
+        print("Error:", e)
+        enviar_mensaje(f"⚠️ Error: {e}")
+        time.sleep(10)
