@@ -10,11 +10,11 @@ import numpy as np
 # 🔐 CONFIGURACIÓN
 # ==============================
 
-EMAIL = "TU_EMAIL"
-PASSWORD = "TU_PASSWORD"
+EMAIL = "jjarandacarro@gmail.com"
+PASSWORD = "Pelo0709$$$"
 
-TOKEN = "TU_TOKEN"
-CHAT_ID = "TU_CHAT_ID"
+TOKEN = "8329264709:AAHyKe68ERfMr37EM8qn33KzMJuCuV6KeIM"
+CHAT_ID = "6826449033"
 
 PAR = "EURUSD"
 TIEMPO = 1  # minutos
