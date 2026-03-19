@@ -3,7 +3,7 @@ import pandas as pd
 import time
 
 # 🔹 TELEGRAM
-TOKEN = "AAHyKe68ERfMr37EM8qn33KzMJuCuV6KeIM"
+TOKEN = "8329264709:AAHyKe68ERfMr37EM8qn33KzMJuCuV6KeIM"
 CHAT_ID = "6826449033"
 
 
