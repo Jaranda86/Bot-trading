@@ -89,10 +89,10 @@ def analizar(df):
         razones.append("MACD bajista")
 
     # DECISIÓN EQUILIBRADA
-    if ultima['rsi'] < 35 and ultima['macd'] > ultima['signal']:
+    if ultima['rsi'] < 40 and ultima['macd'] > ultima['signal']:
         return "call", razones
 
-    elif ultima['rsi'] > 65 and ultima['macd'] < ultima['signal']:
+    elif ultima['rsi'] > 60 and ultima['macd'] < ultima['signal']:
         return "put", razones
 
     return None, razones
