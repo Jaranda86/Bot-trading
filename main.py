@@ -1,22 +1,27 @@
 from flask import Flask
 import threading
+import os
 
+# =========================
+# WEB SERVER (RENDER GRATIS)
+# =========================
 app = Flask(__name__)
 
 @app.route('/')
 def home():
     return "Bot activo"
 
-import os
-
 def run_web():
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 
 threading.Thread(target=run_web).start()
+
+# =========================
+# IMPORTS
+# =========================
 import requests
 import time
-from datetime import datetime
 from iqoptionapi.stable_api import IQ_Option
 import pandas as pd
 
@@ -30,8 +35,8 @@ TOKEN = "8329264709:AAHyKe68ERfMr37EM8qn33KzMJuCuV6KeIM"
 CHAT_ID = "6826449033"
 
 PARIDADES = ["EURUSD-OTC", "GBPUSD-OTC", "AUDUSD-OTC"]
-TIEMPO = 60  # 1 min
 MONTO = 1
+TIEMPO = 60
 
 # =========================
 # TELEGRAM
@@ -75,10 +80,10 @@ def analizar(df):
     razones = []
 
     # RSI
-    if ultima['rsi'] < 30:
-        razones.append("RSI sobreventa")
-    elif ultima['rsi'] > 70:
-        razones.append("RSI sobrecompra")
+    if ultima['rsi'] < 40:
+        razones.append("RSI bajo")
+    elif ultima['rsi'] > 60:
+        razones.append("RSI alto")
     else:
         razones.append("RSI neutro")
 
@@ -88,7 +93,7 @@ def analizar(df):
     else:
         razones.append("MACD bajista")
 
-    # DECISIÓN EQUILIBRADA
+    # DECISIÓN
     if ultima['rsi'] < 40 and ultima['macd'] > ultima['signal']:
         return "call", razones
 
@@ -107,7 +112,7 @@ Iq.connect()
 if Iq.check_connect():
     print("Conectado correctamente")
     Iq.change_balance("PRACTICE")
-    enviar_mensaje("🚀 Bot ACTIVO conectado a IQ Option DEMO")
+    enviar_mensaje("🚀 Bot ACTIVO en IQ Option DEMO")
 else:
     print("Error al conectar")
     exit()
@@ -126,30 +131,27 @@ while True:
             señal, razones = analizar(df)
 
             if señal == "call":
-                msg = f"🟢 COMPRA (CALL) {par}\n" + "\n".join(razones)
-                enviar_mensaje(msg)
+                enviar_mensaje(f"🟢 COMPRA (CALL) {par}\n" + "\n".join(razones))
 
                 status, id = Iq.buy(MONTO, par, "call", 1)
 
-            if status:
-               enviar_mensaje(f"✅ OPERACIÓN EJECUTADA {par}")
-            else:
-               enviar_mensaje(f"❌ ERROR AL OPERAR {par}")
+                if status:
+                    enviar_mensaje(f"✅ OPERACIÓN EJECUTADA {par}")
+                else:
+                    enviar_mensaje(f"❌ ERROR AL OPERAR {par}")
 
             elif señal == "put":
-                msg = f"🔴 VENTA (PUT) {par}\n" + "\n".join(razones)
-                enviar_mensaje(msg)
+                enviar_mensaje(f"🔴 VENTA (PUT) {par}\n" + "\n".join(razones))
 
                 status, id = Iq.buy(MONTO, par, "put", 1)
 
-            if status:
-               enviar_mensaje(f"✅ OPERACIÓN EJECUTADA {par}")
-            else:
-               enviar_mensaje(f"❌ ERROR AL OPERAR {par}")
+                if status:
+                    enviar_mensaje(f"✅ OPERACIÓN EJECUTADA {par}")
+                else:
+                    enviar_mensaje(f"❌ ERROR AL OPERAR {par}")
 
             else:
-                msg = f"❌ {par} sin señal clara\n" + "\n".join(razones)
-                enviar_mensaje(msg)
+                enviar_mensaje(f"❌ {par} sin señal\n" + "\n".join(razones))
 
             time.sleep(2)
 
