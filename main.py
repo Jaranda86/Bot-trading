@@ -131,10 +131,10 @@ while True:
 
                 status, id = Iq.buy(MONTO, par, "call", 1)
 
-if status:
-    enviar_mensaje(f"✅ OPERACIÓN EJECUTADA {par}")
-else:
-    enviar_mensaje(f"❌ ERROR AL OPERAR {par}")
+            if status:
+               enviar_mensaje(f"✅ OPERACIÓN EJECUTADA {par}")
+            else:
+               enviar_mensaje(f"❌ ERROR AL OPERAR {par}")
 
             elif señal == "put":
                 msg = f"🔴 VENTA (PUT) {par}\n" + "\n".join(razones)
@@ -142,10 +142,10 @@ else:
 
                 status, id = Iq.buy(MONTO, par, "put", 1)
 
-if status:
-    enviar_mensaje(f"✅ OPERACIÓN EJECUTADA {par}")
-else:
-    enviar_mensaje(f"❌ ERROR AL OPERAR {par}")
+            if status:
+               enviar_mensaje(f"✅ OPERACIÓN EJECUTADA {par}")
+            else:
+               enviar_mensaje(f"❌ ERROR AL OPERAR {par}")
 
             else:
                 msg = f"❌ {par} sin señal clara\n" + "\n".join(razones)
