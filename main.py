@@ -128,6 +128,11 @@ while True:
             velas = Iq.get_candles(par, TIEMPO, 50, time.time())
             df = pd.DataFrame(velas)
 
+        # VALIDACIÓN
+        if df.empty or 'close' not in df.columns:
+             enviar_mensaje(f"⚠️ Error datos en {par}")
+             continue
+
             señal, razones = analizar(df)
 
             if señal == "call":
