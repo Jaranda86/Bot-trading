@@ -29,7 +29,7 @@ PASSWORD = "Pelin0709$$$"
 TOKEN = "8329264709:AAHyKe68ERfMr37EM8qn33KzMJuCuV6KeIM"
 CHAT_ID = "6826449033"
 
-PARIDADES = ["EURUSD-OTC", "GBPUSD-OTC", "AUDUSD-OTC"]
+PARIDADES = ["EURUSD-OTC", "GBPUSD-OTC"]
 TIEMPO = 60
 MONTO = 100
 
@@ -74,17 +74,17 @@ def analizar(df):
 
     razones = ""
 
-    if rsi < 30 and macd_actual > señal_actual:
+    # MÁS FLEXIBLE 🔥
+    if rsi < 40 and macd_actual > señal_actual:
         razones = f"RSI bajo ({rsi:.2f})\nMACD alcista"
         return "call", razones
 
-    elif rsi > 70 and macd_actual < señal_actual:
+    elif rsi > 60 and macd_actual < señal_actual:
         razones = f"RSI alto ({rsi:.2f})\nMACD bajista"
         return "put", razones
 
     else:
-        razones = f"RSI neutro ({rsi:.2f})\nMACD sin cruce claro"
-        return "none", razones
+        return "none", f"RSI ({rsi:.2f})\nSin fuerza clara"
 
 # ============================
 # CONEXION IQ OPTION
@@ -134,7 +134,7 @@ while True:
             else:
                 enviar_mensaje(f"❌ {par} sin señal\n{razones}")
 
-        time.sleep(60)
+        time.sleep(30)
 
     except Exception as e:
         enviar_mensaje(f"⚠️ Error: {e}")
