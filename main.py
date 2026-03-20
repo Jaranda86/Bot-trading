@@ -1,6 +1,9 @@
 from flask import Flask
 import threading
 
+# ============================
+# FLASK (para mantener vivo Render)
+# ============================
 app = Flask(__name__)
 
 @app.route('/')
@@ -10,7 +13,7 @@ def home():
 def run_web():
     app.run(host='0.0.0.0', port=10000)
 
-threading.Thread(target=run_web).start()
+threading.Thread(target=run_web, daemon=True).start()
 
 # ============================
 # IMPORTS
@@ -24,13 +27,13 @@ from iqoptionapi.stable_api import IQ_Option
 # CONFIG
 # ============================
 EMAIL = "jjarandacarro@gmail.com"
-PASSWORD = "Pelin0709"
+PASSWORD = "Pelin0709$$$"
 TOKEN = "8329264709:AAHyKe68ERfMr37EM8qn33KzMJuCuV6KeIM"
 CHAT_ID = "6826449033"
 
 PARIDADES = ["EURUSD-OTC", "GBPUSD-OTC"]
 TIEMPO = 60
-MONTO = 100
+MONTO = 1
 
 # ============================
 # TELEGRAM
@@ -44,7 +47,7 @@ def enviar_mensaje(msg):
         pass
 
 # ============================
-# CONEXIÓN
+# CONEXIÓN IQ OPTION
 # ============================
 Iq = IQ_Option(EMAIL, PASSWORD)
 
@@ -107,63 +110,69 @@ def analizar(df):
         return "none", razones
 
 # ============================
-# LOOP PRINCIPAL
+# BOT PRINCIPAL
 # ============================
-ultima_actividad = time.time()
+def iniciar_bot():
+    ultima_actividad = time.time()
 
-while True:
-    try:
-        enviar_mensaje("🤖 Analizando mercado...")
+    while True:
+        try:
+            enviar_mensaje("🤖 Analizando mercado...")
 
-        for par in PARIDADES:
-            velas = Iq.get_candles(par, TIEMPO, 50, time.time())
+            for par in PARIDADES:
+                velas = Iq.get_candles(par, TIEMPO, 50, time.time())
 
-            # SI NO HAY DATOS → RECONEXIÓN
-            if velas is None or len(velas) == 0:
-                enviar_mensaje(f"⚠️ Sin datos en {par}, reconectando...")
+                # SI FALLA → RECONEXIÓN
+                if velas is None or len(velas) == 0:
+                    enviar_mensaje(f"⚠️ Sin datos en {par}, reconectando...")
+                    reconectar()
+                    continue
+
+                df = pd.DataFrame(velas)
+
+                if df.empty or 'close' not in df.columns:
+                    enviar_mensaje(f"⚠️ Error datos en {par}")
+                    continue
+
+                señal, razones = analizar(df)
+
+                if señal == "call":
+                    enviar_mensaje(f"🟢 COMPRA {par}\n{razones}")
+                    status, _ = Iq.buy(MONTO, par, "call", 1)
+
+                    if status:
+                        enviar_mensaje("✅ Operación ejecutada")
+                    else:
+                        enviar_mensaje("❌ Error al ejecutar")
+
+                elif señal == "put":
+                    enviar_mensaje(f"🔴 VENTA {par}\n{razones}")
+                    status, _ = Iq.buy(MONTO, par, "put", 1)
+
+                    if status:
+                        enviar_mensaje("✅ Operación ejecutada")
+                    else:
+                        enviar_mensaje("❌ Error al ejecutar")
+
+                else:
+                    enviar_mensaje(f"❌ {par} sin señal\n{razones}")
+
+                ultima_actividad = time.time()
+
+            # SI SE QUEDA QUIETO → RECONEXIÓN
+            if time.time() - ultima_actividad > 300:
+                enviar_mensaje("⚠️ Reiniciando conexión por inactividad")
                 reconectar()
-                continue
+                ultima_actividad = time.time()
 
-            df = pd.DataFrame(velas)
+            time.sleep(30)
 
-            if df.empty or 'close' not in df.columns:
-                enviar_mensaje(f"⚠️ Error datos en {par}")
-                continue
-
-            señal, razones = analizar(df)
-
-            if señal == "call":
-                enviar_mensaje(f"🟢 COMPRA {par}\n{razones}")
-                status, _ = Iq.buy(MONTO, par, "call", 1)
-
-                if status:
-                    enviar_mensaje("✅ Operación ejecutada")
-                else:
-                    enviar_mensaje("❌ Error al ejecutar")
-
-            elif señal == "put":
-                enviar_mensaje(f"🔴 VENTA {par}\n{razones}")
-                status, _ = Iq.buy(MONTO, par, "put", 1)
-
-                if status:
-                    enviar_mensaje("✅ Operación ejecutada")
-                else:
-                    enviar_mensaje("❌ Error al ejecutar")
-
-            else:
-                enviar_mensaje(f"❌ {par} sin señal\n{razones}")
-
-            ultima_actividad = time.time()
-
-        # SI SE QUEDA QUIETO → RECONEXIÓN
-        if time.time() - ultima_actividad > 300:
-            enviar_mensaje("⚠️ Reiniciando conexión por inactividad")
+        except Exception as e:
+            enviar_mensaje(f"⚠️ Error: {e}")
             reconectar()
-            ultima_actividad = time.time()
+            time.sleep(10)
 
-        time.sleep(30)
-
-    except Exception as e:
-        enviar_mensaje(f"⚠️ Error: {e}")
-        reconectar()
-        time.sleep(10)
+# ============================
+# INICIAR BOT EN PARALELO
+# ============================
+threading.Thread(target=iniciar_bot).start()
