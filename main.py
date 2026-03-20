@@ -125,31 +125,31 @@ while True:
         enviar_mensaje("🤖 Analizando mercado...")
 
         for par in PARIDADES:
-    velas = Iq.get_candles(par, TIEMPO, 50, time.time())
-    df = pd.DataFrame(velas)
+           velas = Iq.get_candles(par, TIEMPO, 50, time.time())
+           df = pd.DataFrame(velas)
 
-    # VALIDACIÓN
-    if df.empty or 'close' not in df.columns:
-        enviar_mensaje(f"⚠️ Error datos en {par}")
-        continue
+           # VALIDACIÓN
+        if df.empty or 'close' not in df.columns:
+           enviar_mensaje(f"⚠️ Error datos en {par}")
+           continue
 
-    señal, razones = analizar(df)
+           señal, razones = analizar(df)
 
-    if señal == "call":
-        enviar_mensaje(f"🟢 COMPRA (CALL) {par}\n{razones}")
-        status, id = Iq.buy(MONTO, par, "call", 1)
-
-        if status:
-            enviar_mensaje("✅ Operación ejecutada")
-        else:
-            enviar_mensaje("❌ Error al ejecutar")
-
-    elif señal == "put":
-        enviar_mensaje(f"🔴 VENTA (PUT) {par}\n{razones}")
-        status, id = Iq.buy(MONTO, par, "put", 1)
+        if señal == "call":
+           enviar_mensaje(f"🟢 COMPRA (CALL) {par}\n{razones}")
+           status, id = Iq.buy(MONTO, par, "call", 1)
 
         if status:
             enviar_mensaje("✅ Operación ejecutada")
         else:
             enviar_mensaje("❌ Error al ejecutar")
-        time.sleep(10)
+
+        elif señal == "put":
+            enviar_mensaje(f"🔴 VENTA (PUT) {par}\n{razones}")
+            status, id = Iq.buy(MONTO, par, "put", 1)
+
+        if status:
+            enviar_mensaje("✅ Operación ejecutada")
+        else:
+            enviar_mensaje("❌ Error al ejecutar")
+            time.sleep(10)
