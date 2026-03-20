@@ -16,7 +16,6 @@ threading.Thread(target=run_web).start()
 # IMPORTS
 # ============================
 import time
-from datetime import datetime
 import pandas as pd
 import requests
 from iqoptionapi.stable_api import IQ_Option
@@ -25,7 +24,7 @@ from iqoptionapi.stable_api import IQ_Option
 # CONFIG
 # ============================
 EMAIL = "jjarandacarro@gmail.com"
-PASSWORD = "Pelin0709$$$"
+PASSWORD = "Pelin0709"
 TOKEN = "8329264709:AAHyKe68ERfMr37EM8qn33KzMJuCuV6KeIM"
 CHAT_ID = "6826449033"
 
@@ -43,6 +42,27 @@ def enviar_mensaje(msg):
         requests.post(url, data=data)
     except:
         pass
+
+# ============================
+# CONEXIÓN
+# ============================
+Iq = IQ_Option(EMAIL, PASSWORD)
+
+def conectar():
+    Iq.connect()
+    Iq.change_balance("PRACTICE")
+    enviar_mensaje("🚀 Bot conectado a IQ Option DEMO")
+
+def reconectar():
+    global Iq
+    try:
+        Iq.connect()
+        Iq.change_balance("PRACTICE")
+        enviar_mensaje("🔄 Reconectando a IQ Option...")
+    except:
+        enviar_mensaje("❌ Error reconexión")
+
+conectar()
 
 # ============================
 # INDICADORES
@@ -72,41 +92,40 @@ def analizar(df):
     macd_actual = macd.iloc[-1]
     señal_actual = señal_macd.iloc[-1]
 
-    razones = ""
-
-    # MÁS FLEXIBLE 🔥
-    if rsi < 40 and macd_actual > señal_actual:
-        razones = f"RSI bajo ({rsi:.2f})\nMACD alcista"
-        return "call", razones
-
-    elif rsi > 60 and macd_actual < señal_actual:
-        razones = f"RSI alto ({rsi:.2f})\nMACD bajista"
-        return "put", razones
-
+    if macd_actual > señal_actual:
+        estado_macd = "alcista"
     else:
-        return "none", f"RSI ({rsi:.2f})\nSin fuerza clara"
+        estado_macd = "bajista"
 
-# ============================
-# CONEXION IQ OPTION
-# ============================
-Iq = IQ_Option(EMAIL, PASSWORD)
-Iq.connect()
-Iq.change_balance("PRACTICE")
+    razones = f"RSI ({rsi:.2f})\nMACD {estado_macd}"
 
-enviar_mensaje("🚀 Bot ACTIVO conectado a IQ Option DEMO")
+    if rsi < 45 and macd_actual > señal_actual:
+        return "call", razones
+    elif rsi > 55 and macd_actual < señal_actual:
+        return "put", razones
+    else:
+        return "none", razones
 
 # ============================
 # LOOP PRINCIPAL
 # ============================
+ultima_actividad = time.time()
+
 while True:
     try:
         enviar_mensaje("🤖 Analizando mercado...")
 
         for par in PARIDADES:
             velas = Iq.get_candles(par, TIEMPO, 50, time.time())
+
+            # SI NO HAY DATOS → RECONEXIÓN
+            if velas is None or len(velas) == 0:
+                enviar_mensaje(f"⚠️ Sin datos en {par}, reconectando...")
+                reconectar()
+                continue
+
             df = pd.DataFrame(velas)
 
-            # VALIDACIÓN ANTI ERROR
             if df.empty or 'close' not in df.columns:
                 enviar_mensaje(f"⚠️ Error datos en {par}")
                 continue
@@ -134,8 +153,17 @@ while True:
             else:
                 enviar_mensaje(f"❌ {par} sin señal\n{razones}")
 
+            ultima_actividad = time.time()
+
+        # SI SE QUEDA QUIETO → RECONEXIÓN
+        if time.time() - ultima_actividad > 300:
+            enviar_mensaje("⚠️ Reiniciando conexión por inactividad")
+            reconectar()
+            ultima_actividad = time.time()
+
         time.sleep(30)
 
     except Exception as e:
         enviar_mensaje(f"⚠️ Error: {e}")
+        reconectar()
         time.sleep(10)
