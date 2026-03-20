@@ -33,7 +33,7 @@ CHAT_ID = "6826449033"
 
 PARIDADES = ["EURUSD-OTC", "GBPUSD-OTC"]
 TIEMPO = 60
-MONTO = 1
+MONTO = 100
 
 # ============================
 # TELEGRAM
