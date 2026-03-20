@@ -144,11 +144,11 @@ while True:
         else:
             enviar_mensaje("❌ Error al ejecutar")
 
-        elif señal == "put":
+          elif señal == "put":
             enviar_mensaje(f"🔴 VENTA (PUT) {par}\n{razones}")
             status, id = Iq.buy(MONTO, par, "put", 1)
 
-        if status:
+          if status:
             enviar_mensaje("✅ Operación ejecutada")
         else:
             enviar_mensaje("❌ Error al ejecutar")
