@@ -125,44 +125,31 @@ while True:
         enviar_mensaje("🤖 Analizando mercado...")
 
         for par in PARIDADES:
-            velas = Iq.get_candles(par, TIEMPO, 50, time.time())
-            df = pd.DataFrame(velas)
+    velas = Iq.get_candles(par, TIEMPO, 50, time.time())
+    df = pd.DataFrame(velas)
 
-        # VALIDACIÓN
-        if df.empty or 'close' not in df.columns:
-             enviar_mensaje(f"⚠️ Error datos en {par}")
-             continue
+    # VALIDACIÓN
+    if df.empty or 'close' not in df.columns:
+        enviar_mensaje(f"⚠️ Error datos en {par}")
+        continue
 
-            señal, razones = analizar(df)
+    señal, razones = analizar(df)
 
-            if señal == "call":
-                enviar_mensaje(f"🟢 COMPRA (CALL) {par}\n" + "\n".join(razones))
+    if señal == "call":
+        enviar_mensaje(f"🟢 COMPRA (CALL) {par}\n{razones}")
+        status, id = Iq.buy(MONTO, par, "call", 1)
 
-                status, id = Iq.buy(MONTO, par, "call", 1)
+        if status:
+            enviar_mensaje("✅ Operación ejecutada")
+        else:
+            enviar_mensaje("❌ Error al ejecutar")
 
-                if status:
-                    enviar_mensaje(f"✅ OPERACIÓN EJECUTADA {par}")
-                else:
-                    enviar_mensaje(f"❌ ERROR AL OPERAR {par}")
+    elif señal == "put":
+        enviar_mensaje(f"🔴 VENTA (PUT) {par}\n{razones}")
+        status, id = Iq.buy(MONTO, par, "put", 1)
 
-            elif señal == "put":
-                enviar_mensaje(f"🔴 VENTA (PUT) {par}\n" + "\n".join(razones))
-
-                status, id = Iq.buy(MONTO, par, "put", 1)
-
-                if status:
-                    enviar_mensaje(f"✅ OPERACIÓN EJECUTADA {par}")
-                else:
-                    enviar_mensaje(f"❌ ERROR AL OPERAR {par}")
-
-            else:
-                enviar_mensaje(f"❌ {par} sin señal\n" + "\n".join(razones))
-
-            time.sleep(2)
-
-        time.sleep(60)
-
-    except Exception as e:
-        print("Error:", e)
-        enviar_mensaje(f"⚠️ Error: {e}")
+        if status:
+            enviar_mensaje("✅ Operación ejecutada")
+        else:
+            enviar_mensaje("❌ Error al ejecutar")
         time.sleep(10)
